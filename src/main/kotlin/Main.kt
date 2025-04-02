@@ -5,6 +5,7 @@ import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import org.json.JSONArray
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import org.json.JSONObject
@@ -68,7 +69,6 @@ fun main() {
             }
 
 
-
             val partidasEsperandoJugador = ConcurrentHashMap<Int, Partida>()
             webSocket("/crear-partida/{jugadorId}") {
                 val jugadorId = call.parameters["jugadorId"]?.toIntOrNull()
@@ -112,9 +112,7 @@ fun main() {
 
 
 
-            /*
-            // WebSocket para aceptar una partida
-            webSocket("/aceptar-partida/{jugadorId}") {
+            webSocket("/buscar-partida/{jugadorId}") {
                 val jugadorId = call.parameters["jugadorId"]?.toIntOrNull()
 
                 if (jugadorId == null) {
@@ -122,37 +120,31 @@ fun main() {
                     return@webSocket
                 }
 
-                println("🟢 Jugador $jugadorId buscando aceptar una partida")
-
                 try {
                     for (frame in incoming) {
                         if (frame is Frame.Text) {
-                            val mensaje = frame.readText()
-                            val json = JSONObject(mensaje)
-
-                            // Obtener el ID del jugador creador
-                            val jugadorCreadorId = json.getInt("jugadorCreadorId")
-                            val creadorSesion = partidasEsperandoJugador[jugadorCreadorId]
-
-                            if (creadorSesion != null) {
-                                // Emparejar a los jugadores
-                                val mensajeInicio = JSONObject()
-                                    .put("accion", "inicio")
-                                    .toString()
-
-                                // Enviar mensaje de inicio a ambos jugadores
-                                this.send(mensajeInicio)
-                                creadorSesion.send(mensajeInicio)
-                                println("🟢 Jugadores emparejados: $jugadorCreadorId y $jugadorId")
+                            // Puedes usar este ciclo para enviar las partidas esperando
+                            val partidasJson = JSONArray()
+                            partidasEsperandoJugador.values.forEach { partida ->
+                                val json = JSONObject()
+                                    .put("creadorId", partida.creadorId)
+                                    .put("modo", partida.modo)
+                                partidasJson.put(json)
                             }
+
+                            // Enviar la lista de partidas disponibles
+                            send(partidasJson.toString())
+
+                            // Mantener la conexión abierta para actualizaciones
                         }
                     }
                 } catch (e: Exception) {
-                    println("❌ Error en conexión con el jugador $jugadorId: ${e.message}")
+                    println("❌ Error en búsqueda de partidas para el jugador $jugadorId: ${e.message}")
                 }
             }
 
-             */
+
+
 
         }
     }.start(wait = true)
