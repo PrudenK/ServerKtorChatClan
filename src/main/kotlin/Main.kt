@@ -5,6 +5,7 @@ import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import kotlinx.coroutines.channels.consumeEach
 import org.json.JSONArray
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
@@ -22,6 +23,9 @@ fun main() {
 
         routing {
             val salasPorClan = ConcurrentHashMap<Int, MutableSet<DefaultWebSocketServerSession>>()
+            val sesionesDePartidas = ConcurrentHashMap<Int, DefaultWebSocketServerSession>()
+            val partidasEsperandoJugador = ConcurrentHashMap<Int, Partida>()
+
 
             // WebSocket para el chat del clan
             webSocket("/clan-chat/{clanId}") {
@@ -69,45 +73,41 @@ fun main() {
             }
 
 
-            val partidasEsperandoJugador = ConcurrentHashMap<Int, Partida>()
             webSocket("/crear-partida/{jugadorId}") {
-                val jugadorId = call.parameters["jugadorId"]?.toIntOrNull()
+                val jugadorId = call.parameters["jugadorId"]?.toIntOrNull() ?: return@webSocket
 
-                if (jugadorId == null) {
-                    close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Jugador ID inválido"))
-                    return@webSocket
-                }
+                sesionesDePartidas[jugadorId] = this
+
+                var modo = "Clásico"
 
                 try {
-                    // Recibir el mensaje con el modo de la partida
                     for (frame in incoming) {
                         if (frame is Frame.Text) {
                             val mensaje = frame.readText()
                             val json = JSONObject(mensaje)
 
-                            // Obtener el modo de la partida y crear el objeto partida
-                            val modo = json.getString("modo") // El modo debe ser enviado en el JSON
-                            val partida = Partida(creadorId = jugadorId, modo = modo)
+                            if (json.has("modo")) {
+                                modo = json.getString("modo")
+                                partidasEsperandoJugador[jugadorId] = Partida(jugadorId, modo)
+                                println("🟢 Jugador $jugadorId ha creado partida en modo $modo")
 
-                            // Guardar la partida esperando
-                            partidasEsperandoJugador[jugadorId] = partida
-                            println("🟢 Jugador $jugadorId ha creado una partida en modo $modo y está esperando oponente")
+                                send(JSONObject().put("creadorId", jugadorId).put("modo", modo).toString())
+                            }
 
-                            // Enviar confirmación de que la partida fue creada correctamente
-                            val confirmacion = JSONObject()
-                                .put("creadorId", jugadorId)
-                                .put("modo", modo)
-                                .toString()
-                            send(confirmacion)
+                            // ⛔️ Si no hay más mensajes, este for termina y CIERRA el WebSocket.
+                            // Así que dejamos el bucle sin break ni return para mantenerlo abierto.
                         }
                     }
                 } catch (e: Exception) {
-                    println("❌ Error en conexión con el jugador $jugadorId: ${e.message}")
+                    println("❌ Error con jugador $jugadorId: ${e.message}")
                 } finally {
+                    println("🔴 Jugador $jugadorId desconectado")
                     partidasEsperandoJugador.remove(jugadorId)
-                    println("🔴 Jugador $jugadorId desconectado de la creación de partida")
+                    sesionesDePartidas.remove(jugadorId)
                 }
             }
+
+
 
 
 
@@ -141,6 +141,39 @@ fun main() {
                 } catch (e: Exception) {
                     println("❌ Error en búsqueda de partidas para el jugador $jugadorId: ${e.message}")
                 }
+            }
+
+
+
+            webSocket("/unirse-partida/{creadorId}/{unidorId}") {
+                val creadorId = call.parameters["creadorId"]?.toIntOrNull()
+                val unidorId = call.parameters["unidorId"]?.toIntOrNull()
+
+                if (creadorId == null || unidorId == null) {
+                    close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "IDs inválidos"))
+                    return@webSocket
+                }
+
+                val sesionCreador = sesionesDePartidas[creadorId]
+                if (sesionCreador == null) {
+                    close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "El creador no está disponible"))
+                    return@webSocket
+                }
+
+                // Enviar datos de inicio de partida a ambos
+                val jsonInicio = JSONObject()
+                    .put("creadorId", creadorId)
+                    .put("unidorId", unidorId)
+                    .put("mensaje", "iniciarPartida")
+
+                sesionCreador.send(jsonInicio.toString())
+                send(jsonInicio.toString()) // al unidor
+
+                println("🟢 Partida iniciada entre $creadorId y $unidorId")
+
+                // Limpiar de listas
+                partidasEsperandoJugador.remove(creadorId)
+                sesionesDePartidas.remove(creadorId)
             }
 
 
