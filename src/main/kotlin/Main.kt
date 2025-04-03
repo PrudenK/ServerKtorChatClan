@@ -79,6 +79,9 @@ fun main() {
                 sesionesDePartidas[jugadorId] = this
 
                 var modo = "Clásico"
+                var nombre = ""
+                var nivel = -1
+                var foto = ""
 
                 try {
                     for (frame in incoming) {
@@ -88,10 +91,19 @@ fun main() {
 
                             if (json.has("modo")) {
                                 modo = json.getString("modo")
-                                partidasEsperandoJugador[jugadorId] = Partida(jugadorId, modo)
-                                println("🟢 Jugador $jugadorId ha creado partida en modo $modo")
+                                nombre = json.getString("nombre")
+                                nivel = json.getInt("nivel")
+                                foto = json.getString("foto")
 
-                                send(JSONObject().put("creadorId", jugadorId).put("modo", modo).toString())
+                                partidasEsperandoJugador[jugadorId] = Partida(jugadorId, nombre, modo, nivel, foto)
+                                println("🟢 $nombre ($jugadorId) ha creado partida en modo $modo")
+
+                                send(JSONObject().put("creadorId", jugadorId)
+                                    .put("modo", modo)
+                                    .put("nombre", nombre)
+                                    .put("nivel", nivel)
+                                    .put("foto", foto)
+                                    .toString())
                             }
 
                             // ⛔️ Si no hay más mensajes, este for termina y CIERRA el WebSocket.
@@ -129,6 +141,9 @@ fun main() {
                                 val json = JSONObject()
                                     .put("creadorId", partida.creadorId)
                                     .put("modo", partida.modo)
+                                    .put("nombre", partida.nombre)
+                                    .put("foto", partida.foto)
+                                    .put("nivel", partida.nivel)
                                 partidasJson.put(json)
                             }
 
@@ -165,6 +180,7 @@ fun main() {
                     .put("creadorId", creadorId)
                     .put("unidorId", unidorId)
                     .put("mensaje", "iniciarPartida")
+                    .put("modo", partidasEsperandoJugador[creadorId]!!.modo)
 
                 sesionCreador.send(jsonInicio.toString())
                 send(jsonInicio.toString()) // al unidor
