@@ -1,15 +1,18 @@
 import clases.Partida
+import clases.PartidaEnCurso
+import constantes.ApiCustom
+import constantes.Modos
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import kotlinx.coroutines.channels.consumeEach
 import org.json.JSONArray
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import org.json.JSONObject
+import utils.generarBolsaIndices
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -25,6 +28,7 @@ fun main() {
             val salasPorClan = ConcurrentHashMap<Int, MutableSet<DefaultWebSocketServerSession>>()
             val sesionesDePartidas = ConcurrentHashMap<Int, DefaultWebSocketServerSession>()
             val partidasEsperandoJugador = ConcurrentHashMap<Int, Partida>()
+            val partidasEnCurso = ConcurrentHashMap<Int, PartidaEnCurso>()
 
 
             // WebSocket para el chat del clan
@@ -175,12 +179,30 @@ fun main() {
                     return@webSocket
                 }
 
+                val modo = partidasEsperandoJugador[creadorId]!!.modo
+
+                val listaPiezas = when(modo){
+                    "Clásico" -> Modos.CLASICO
+                    "Clśico v2" -> Modos.CLASICO_V2
+                    "All in" -> Modos.ALL_IN
+                    "Algebra" -> Modos.ALGEBRA
+                    "Rapid O" -> Modos.RAPID_O
+                    "Memory" -> Modos.MEMORY
+                    "MemoryX" -> Modos.MEMORY_X
+                    "MemoryY" -> Modos.MEMORY_Y
+                    else -> Modos.CLASICO
+                }
+
+
+                val bolsa = generarBolsaIndices(listaPiezas.toList())
+
                 // Enviar datos de inicio de partida a ambos
                 val jsonInicio = JSONObject()
                     .put("creadorId", creadorId)
                     .put("unidorId", unidorId)
                     .put("mensaje", "iniciarPartida")
-                    .put("modo", partidasEsperandoJugador[creadorId]!!.modo)
+                    .put("bolsa", JSONArray(bolsa))
+                    .put("modo", modo)
 
                 sesionCreador.send(jsonInicio.toString())
                 send(jsonInicio.toString()) // al unidor
