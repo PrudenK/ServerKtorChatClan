@@ -215,6 +215,29 @@ fun main() {
             }
 
 
+            val socketsPartidasEnCurso = ConcurrentHashMap<Int, DefaultWebSocketServerSession>()
+
+            webSocket("/partida-en-curso/{jugadorId}") {
+                val jugadorId = call.parameters["jugadorId"]?.toIntOrNull() ?: return@webSocket
+                socketsPartidasEnCurso[jugadorId] = this
+
+                try {
+                    for (frame in incoming) {
+                        if (frame is Frame.Text) {
+                            val json = JSONObject(frame.readText())
+                            val mensaje = json.getString("mensaje")
+
+                            // Detectar rival
+                            val rivalId = json.getInt("rivalId")
+
+                            // Reenviar al otro jugador
+                            socketsPartidasEnCurso[rivalId]?.send(json.toString())
+                        }
+                    }
+                } finally {
+                    socketsPartidasEnCurso.remove(jugadorId)
+                }
+            }
 
 
         }
