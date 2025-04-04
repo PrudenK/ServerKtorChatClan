@@ -93,25 +93,38 @@ fun main() {
                             val mensaje = frame.readText()
                             val json = JSONObject(mensaje)
 
-                            if (json.has("modo")) {
-                                modo = json.getString("modo")
-                                nombre = json.getString("nombre")
-                                nivel = json.getInt("nivel")
-                                foto = json.getString("foto")
 
-                                partidasEsperandoJugador[jugadorId] = Partida(jugadorId, nombre, modo, nivel, foto)
-                                println("🟢 $nombre ($jugadorId) ha creado partida en modo $modo")
+                            when (json.optString("opcion")) {
+                                "cancelar" -> {
+                                    partidasEsperandoJugador.remove(jugadorId)
+                                    sesionesDePartidas.remove(jugadorId)
+                                    println("❌ $jugadorId ha cancelado su partida")
+                                    send(JSONObject().put("mensaje", "partidaCancelada").toString())
+                                }
 
-                                send(JSONObject().put("creadorId", jugadorId)
-                                    .put("modo", modo)
-                                    .put("nombre", nombre)
-                                    .put("nivel", nivel)
-                                    .put("foto", foto)
-                                    .toString())
+                                else -> {
+                                    // Crear partida como antes
+                                    if (json.has("modo")) {
+                                        modo = json.getString("modo")
+                                        nombre = json.getString("nombre")
+                                        nivel = json.getInt("nivel")
+                                        foto = json.getString("foto")
+
+                                        partidasEsperandoJugador[jugadorId] =
+                                            Partida(jugadorId, nombre, modo, nivel, foto)
+                                        println("🟢 $nombre ($jugadorId) ha creado partida en modo $modo")
+
+                                        send(
+                                            JSONObject().put("creadorId", jugadorId)
+                                                .put("modo", modo)
+                                                .put("nombre", nombre)
+                                                .put("nivel", nivel)
+                                                .put("foto", foto)
+                                                .toString()
+                                        )
+                                    }
+                                }
                             }
-
-                            // ⛔️ Si no hay más mensajes, este for termina y CIERRA el WebSocket.
-                            // Así que dejamos el bucle sin break ni return para mantenerlo abierto.
                         }
                     }
                 } catch (e: Exception) {
@@ -183,10 +196,10 @@ fun main() {
 
                 val listaPiezas = when(modo){
                     "Clásico" -> Modos.CLASICO
-                    "Clśico v2" -> Modos.CLASICO_V2
+                    "Clásico v2" -> Modos.CLASICO_V2
                     "All in" -> Modos.ALL_IN
-                    "Algebra" -> Modos.ALGEBRA
-                    "Rapid O" -> Modos.RAPID_O
+                    "Álgebra" -> Modos.ALGEBRA
+                    "RapidO" -> Modos.RAPID_O
                     "Memory" -> Modos.MEMORY
                     "MemoryX" -> Modos.MEMORY_X
                     "MemoryY" -> Modos.MEMORY_Y

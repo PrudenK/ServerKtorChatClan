@@ -1,6 +1,6 @@
 package utils
 
-fun generarBolsaIndices(piezasPermitidas: List<Int>, repeticiones: Int = 150): List<Int> {
+fun generarBolsaIndices(piezasPermitidas: List<Int>, repeticiones: Int = 50): List<Int> {
     val bolsa = mutableListOf<Int>()
     repeat(repeticiones) {
         val copia = piezasPermitidas.toMutableList()
