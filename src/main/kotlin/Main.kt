@@ -31,7 +31,6 @@ fun main() {
             val partidasEnCurso = ConcurrentHashMap<Int, PartidaEnCurso>()
 
 
-            // WebSocket para el chat del clan
             webSocket("/clan-chat/{clanId}") {
                 val clanId = call.parameters["clanId"]?.toIntOrNull()
 
